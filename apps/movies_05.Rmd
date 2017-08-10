@@ -1,0 +1,132 @@
+---
+title: "Movies dashboard"
+output: 
+ flexdashboard::flex_dashboard:
+   orientation: rows
+   source_code: embed
+runtime: shiny
+---
+
+```{r global, include=FALSE}
+# load data in 'global' chunk so it can be shared by all users of the dashboard
+library(flexdashboard)
+library(shiny)
+library(ggplot2)
+library(dplyr)
+load("movies.Rdata")
+```
+
+```{r}
+# Reactive data frame of selected title types
+movies_selected_titles <- reactive({
+  movies %>% filter(title_type %in% input$title_type)
+})
+
+# Reactive that returns the starting data frame if there is no brush
+movies_brushed <- reactive({
+  d <- brushedPoints(movies_selected_titles(), input$plot1_brush)
+  if (nrow(d) == 0)
+    d <- movies_selected_titles()
+  d
+})
+
+# Linear model for predicting audience score from critics score
+m <- reactive({
+  summary(lm(audience_score ~ critics_score, data = movies_brushed()))
+})
+```
+
+Sidebar {.sidebar}
+=======================================================================
+
+```{r}
+# Select title type
+checkboxGroupInput("title_type", "Select title type:",
+                   choices = levels(movies$title_type),
+                   selected = c("Feature Film", "Documentary")
+                   )
+
+hr()
+
+# Rate at which to flag high R-squared
+sliderInput("rsq_threshold", "Warn when R-squared exceeds:",
+            min = 0, max = 1, 
+            value = 0.3, step = 0.01
+            )
+
+hr()
+
+# Sample size at which to flag low sample size
+numericInput("n_threshold", "Warn when sample size falls below:",
+             value = 30)
+```
+
+Dashboard
+=======================================================================
+
+Row
+-----------------------------------------------------------------------
+
+### Audience score vs. critics' score
+
+```{r}
+plotOutput("plot1", brush = brushOpts(id = "plot1_brush", fill = "gray"))
+output$plot1 <- renderPlot({
+  ggplot(movies_selected_titles(), aes(x = critics_score, y = audience_score, 
+                     color = title_type)) + 
+    geom_point(alpha = 0.7)
+})
+```
+
+Row
+-----------------------------------------------------------------------
+
+### R-squared {.value-box}
+
+```{r}
+# Display R-squared
+renderValueBox({
+  r_sq <- m()$r.squared
+  valueBox(
+    value = round(r_sq, 2) * 100,
+    icon = "fa-percent",
+    color = if (r_sq >= input$rsq_threshold) "warning" else "primary"
+  )
+})
+```
+
+### Sample size {.value-box}
+
+```{r}
+# Display the sample size
+renderValueBox({
+  n <- nrow(movies_brushed())
+  valueBox(value = n, 
+           icon = "fa-bar-chart",
+           color = if (n <= req(input$n_threshold)) "warning" else "primary")
+})
+```
+
+Row
+-----------------------------------------------------------------------
+
+### Audience score vs. MPAA rating
+
+```{r}
+renderPlot({
+  ggplot(movies_brushed(), aes(y = audience_score, x = mpaa_rating)) +
+    geom_boxplot()
+})
+```
+
+Data
+=======================================================================
+
+### Data
+
+```{r}
+DT::renderDataTable({
+  movies_brushed() %>%
+    select(title, audience_score, critics_score, title_type, mpaa_rating)
+})
+```
