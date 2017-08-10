@@ -4,6 +4,7 @@ output:
  flexdashboard::flex_dashboard:
    orientation: rows
    source_code: embed
+   theme: yeti
 runtime: shiny
 ---
 
@@ -61,7 +62,7 @@ numericInput("n_threshold", "Warn when sample size falls below:",
              value = 30)
 ```
 
-Dashboard
+Dashboard {data-icon="fa-tachometer"}
 =======================================================================
 
 Row
@@ -119,7 +120,7 @@ renderPlot({
 })
 ```
 
-Data
+Data {data-icon="fa-table"}
 =======================================================================
 
 ### Data
